@@ -6,13 +6,14 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Drawing.Drawing2D;
+using System.Diagnostics;
 
 namespace ImageFocus
 {
     class Focus
     {
-        //Gets the width and height in pixels of the image        
-
+        // the focus value calcualted by standard deviation 
+        
 
         //method to read image file and convert it to uint8 bitmap
         //this method takes an image as parameter
@@ -25,78 +26,58 @@ namespace ImageFocus
         //method to read bitmap image file and convert it to grayscale 
         public double GetFValue(Bitmap source)
         {
+            int count = 0;
+            double total = 0;
+            double totalVariance = 0;
+            double FM = 0;
             Bitmap bm = new Bitmap(source.Width, source.Height);
-            double brenner = 0.0;
+          
+            // converting to grayscale
             for (int y = 0; y < bm.Height; y++)
             {
                 for (int x = 0; x < bm.Width; x++)
                 {
+                    count++;
                     Color c = source.GetPixel(x, y);
                     int luma = (int)(c.R * 0.3 + c.G * 0.59 + c.B * 0.11);
-                    bm.SetPixel(x, y, Color.FromArgb(luma, luma, luma));
-                    var p = bm.GetPixel(x, y);
-                    var p1 = bm.GetPixel(x + 2, y);
-                    var firstValue =(double) p.B;
-                    var secondValue =(double) p1.G;
-
-                    brenner += ((secondValue - firstValue) * (secondValue - firstValue));
-
-                    
+                    bm.SetPixel(x, y, Color.FromArgb(luma, luma, luma)); // the image is now gray scaled 
+                    var pixelval = bm.GetPixel(x, y);
+                    int pixelValue = pixelval.G;
+                    total += pixelValue;
+                    double avg = total / count;
+                    totalVariance += Math.Pow(pixelValue - avg, 2);
+                    double stDV = Math.Sqrt(totalVariance / count); // the standard deviation, which is also the focus value
+                    FM = Math.Round(stDV, 2);           
                 }
             }
-            return brenner;
+            return FM;
         }
 
-        
 
 
-        //public double GetBrennerFocus(Image source)
-        //{
-        //    Bitmap bm = new Bitmap(source);
-        //    int Hsize = bm.Width;
-        //    int Vsize = bm.Height;
-        //    double brenner = 0;
-        //    Color[][] imageMatrix = new Color[Hsize][];
-        //    for (int i = 0; i < Hsize; i++)
-        //    {
-        //        imageMatrix[i] = new Color[Vsize];
-        //        for (int j = 0; j < Vsize; j++)
-        //        {
-        //            Color c = bm.GetPixel(j, j);
-        //            int luma = (int)(c.R * 0.3 + c.G * 0.59 + c.B * 0.11);
-        //            bm.SetPixel(i, j, Color.FromArgb(luma, luma, luma));
-        //            imageMatrix[i][j] = bm.GetPixel(i, j);
-        //         }
-        //    }
-            
-        //     for(int j=0 ; j<Hsize; j++)
-        //    {
-        //        for (int i=0; i<Vsize; i++)
-        //        {
-        //            int[] p = imageMatrix[i];
-        //            int[] p1 = imageMatrix.Getvalue(i+2,j);
-        //            double brenner += (p1-p)*(p1-p);
-                    
-                    
-        //        }
-        //    }
 
-        //   return brenner; 
-        //}
 
-             
+
+
+
+
+
+
+
+
 
         // main method that I am using just to test my methods in the class Focus
         static void Main(string[] args)
         {
           Focus testimage = new Focus();
 
-           Image myimage = Image.FromFile(@"C:\Users\payam\Desktop\focusTest.png", true);
-
+           Image myimage = Image.FromFile(@"C:\Users\payam\Desktop\frame-42.png", true);
+           var watch = Stopwatch.StartNew();
            Bitmap bitmapimage = testimage.ConvertToBitmap(myimage);
            var FM = testimage.GetFValue(bitmapimage);
            Console.WriteLine(FM);
-            Console.ReadLine();
+           Console.WriteLine(watch.ElapsedMilliseconds);
+           Console.ReadLine();
         }
     }
 }
