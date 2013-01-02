@@ -8,6 +8,7 @@ using System.IO;
 using System.Drawing.Drawing2D;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace ImageFocus
 {
@@ -50,13 +51,14 @@ namespace ImageFocus
             return FM;
         }
 
+        // this is the fast method
         public double CalculateF(Image image)
         {
 
             Bitmap myimage = new Bitmap(image);
             Graphics g = Graphics.FromImage(myimage);
             var upbound = image.Height;
-
+            // converting the image to gray scale
             ColorMatrix colorMatrix = new ColorMatrix(
                 new float[][]
                 {
@@ -75,10 +77,10 @@ namespace ImageFocus
             myimage.UnlockBits(Data);
             g.Dispose();
 
-            
+          
 
 
-
+            // this part needs work to get significantly faster
             double total = 0;
             int count = 0;
             double totalVariance = 0;
@@ -100,9 +102,107 @@ namespace ImageFocus
              return Math.Round(FM, 3);
         }
 
-        
+        // defining my own bitmap class to have faster access to bitmap data
+        public class LockBitMap
+        {
+    
+         Bitmap source = null;
+         IntPtr Iptr = IntPtr.Zero;
+         BitmapData bitmapData = null;
+ 
+         public byte[] Pixels { get; set; }
+         public int Depth { get; private set; }
+         public int Width { get; private set; }
+         public int Height { get; private set; }
+            
+         public LockBitMap(Bitmap source)
+         {
+             this.source = source;
+         }
+            //lock bitmap data
+          
+         public void Lockbits()
+         {
+             try
+             {
+                 Width = source.Width;
+                 Height = source.Height;
 
-           
+                 int Pixelcount = Width*Height;
+                 Rectangle rect = new Rectangle(0,0,Width,Height);
+                 Depth = System.Drawing.Bitmap.GetPixelFormatSize(source.PixelFormat);
+                 bitmapData = source.LockBits(rect,ImageLockMode.ReadWrite,source.PixelFormat);
+                 int step = Depth/8;
+                 Pixels = new byte[Pixelcount*step];
+                 Iptr = bitmapData.Scan0;
+                 Marshal.Copy(Iptr,Pixels,0,Pixels.Length);
+             }
+             catch (Exception exp)
+             {
+                 throw (exp);
+             }
+         }
+            //unlock bitmap data
+
+            public void UnlockBits()
+            {
+                try
+                {
+                    Marshal.Copy(Pixels,0,Iptr,Pixels.Length);
+                    source.UnlockBits(bitmapData);
+                }
+                catch (Exception exp)
+                {
+                    throw (exp);
+                }
+            }
+
+            //getting color of specific pixel, .Net function is damn slow
+
+            public Color GetPixel(int x, int y)
+            {
+                Color clr = Color.Empty;
+
+                //get color component count
+                int cCount = Depth / 8;
+                //index of specific pixel
+
+                int i = ((y*Width)+x)*cCount;
+                // I am going to do this for 32bit pixels, other cases are slightly different
+                byte b = Pixels[i];
+                byte g = Pixels[i+1];
+                byte r = Pixels[i+2];
+                byte a = Pixels[i+3]; // alpha for opacity
+
+                clr = Color.FromArgb(a,r,g,b);
+                return clr;
+            }
+
+            // now setting the color of an specific pixel
+
+            public void SetPixel(int x, int y, Color color)
+            {
+                int cCount = Depth / 8;
+                int i = ((y*Width)+x)*cCount;
+                //I just do it for 32 bit pixel
+                Pixels[i] = color.B;
+                Pixels[i+1] = color.G;
+                Pixels[i+2] = color.R;
+                Pixels[i+3] = color.A;
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -110,7 +210,7 @@ namespace ImageFocus
         static void Main(string[] args)
         {
             Focus testimage = new Focus();
-            Image myimage = Image.FromFile(@"C:\Users\payam\Desktop\frame-42.png", true);
+            Image myimage = Image.FromFile(@"C:\Users\payam\Desktop\frame-1.png", true);
             //var watch = Stopwatch.StartNew();
             //var FM = testimage.GetFValue(myimage);
             //Console.WriteLine(FM);
