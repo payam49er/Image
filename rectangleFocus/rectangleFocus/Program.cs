@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 
+
 namespace ImageFocus
 {
     class Focus
@@ -82,10 +83,10 @@ namespace ImageFocus
         public double GetFocusValue(Image image)
         {
             Bitmap source = new Bitmap(image);
-            int count = 0;
-            double total = 0;
-            double totalVariance = 0;
-            double FM = 0;
+            //int count = 0;
+            //double total = 0;
+            //double totalVariance = 0;
+            //double FM = 0;
             Bitmap bm = new Bitmap(source.Width,source.Height);
             Rectangle rect = new Rectangle(0,0,source.Width,source.Height);
 
@@ -93,27 +94,44 @@ namespace ImageFocus
             int[] pixelData = new int[(rect.Height * rect.Width)-1];
             System.Runtime.InteropServices.Marshal.Copy(bmd.Scan0,pixelData,0,pixelData.Length);
 
-            Parallel.For(0, pixelData.Length, i =>
-            {
-                count++;
+           // Parallel.For(0, pixelData.Length, i =>
+            //for(int i=0; i < pixelData.Length; i++)
+            //{
+            //    count++;
+            //    Color c = Color.FromArgb(pixelData[i]);
+            //    int luma = (int)(c.R * 0.3 + c.G * 0.59 + c.B * 0.11);
+            //    total += luma;
+            //    double avg = total / count;
+            //    totalVariance += Math.Pow(luma - avg, 2);
+            //    double stDV = Math.Sqrt(totalVariance / count);
+            //    FM = Math.Round(stDV, 2);
+            //}
+            //source.UnlockBits(bmd);
+
+            int[] lumadata = new int[pixelData.Length];
+            Parallel.For(0,pixelData.Length, i =>
+                {
+                   
                 Color c = Color.FromArgb(pixelData[i]);
                 int luma = (int)(c.R * 0.3 + c.G * 0.59 + c.B * 0.11);
-                pixelData[i] = Color.FromArgb(luma, luma, luma).ToArgb();
-                total += luma;
-                double avg = total / count;
-                totalVariance += Math.Pow(luma - avg, 2);
-                double stDV = Math.Sqrt(totalVariance / count);
-                FM = Math.Round(stDV, 2);
+                lumadata[i] = luma;
             });
-            source.UnlockBits(bmd);
-            return FM;
+
+            double mean = lumadata.AsParallel().Average();
+            double FM = lumadata.AsParallel().Aggregate(0.0,
+                                (subtotal, item) => subtotal + Math.Pow((item - mean), 2),
+                                (total, thisThread) => total + thisThread,
+                                 (finalSum) => Math.Sqrt((finalSum / (lumadata.Length - 1)))
+                                     );
+            return Math.Round(FM,2);
+
         }
 
-  
 
 
-                
-      
+
+
+
 
         // defining my own bitmap class to have faster access to bitmap data
         public class LockBitMap
