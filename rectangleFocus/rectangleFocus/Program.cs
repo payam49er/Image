@@ -28,56 +28,37 @@ namespace ImageFocus
 
             Rectangle rect = new Rectangle(0, 0, source.Width, source.Height);
 
-            BitmapData bmd = source.LockBits(rect, ImageLockMode.ReadOnly, source.PixelFormat);
-        
-            int totalPixels = rect.Height * rect.Width;
+            BitmapData bmd = source.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
 
-            int[] pixelData = new int[(totalPixels)-1];
+            int[] pixelData = new int[source.Width*source.Height];
 
             System.Runtime.InteropServices.Marshal.Copy(bmd.Scan0, pixelData, 0, pixelData.Length);
-            int[] lumadata = new int[pixelData.Length];
-
-            //Parallel.For(0, pixelData.Length, i =>
-            //    {
-            //        IntPtr ptr = bmd.Scan0 + i;
-
-            //        byte* pixel = (byte*)ptr;
-
-            //        float r = pixel[1];
-            //        float g = pixel[2];
-            //        float b = pixel[3];
-
-            //        double luma = (r * 0.3 + g * 0.59 + b * 0.11);
-            //        pixelData[i] = luma;
-
-            //    });
+      
 
             Parallel.For(0, pixelData.Length, i =>
                 {
                     Color c = Color.FromArgb(pixelData[i]);
                     int luma = (int)(c.R * 0.3 + c.G * 0.59 + c.B * 0.11);
-                    lumadata[i] = luma;
+                    pixelData[i] = luma;
                 });
 
-                         
-
-            double mean = lumadata.AsParallel().Average();
-            double FM = lumadata.AsParallel().Aggregate(0.0,(subtotal,item) => subtotal + Math.Pow((item-mean),2),
-                                                         (total,thisThread) => total + thisThread, 
-                                                         (finalSum) => Math.Sqrt((finalSum / (lumadata.Length - 1))));
+            double mean = pixelData.AsParallel().Average();
+            double FM = pixelData.AsParallel().Aggregate(0.0, (subtotal, item) => subtotal + ((item - mean) * (item - mean)),
+                                                         (total, thisThread) => total + thisThread,
+                                                         (finalSum) => Math.Sqrt((finalSum / (pixelData.Length - 1))));
 
             return Math.Round(FM, 4);
 
         }
 
       
-       public static double StandardDeviation(int[] source)
-        {
-            double avg = source.AsParallel().Average();
-            double d = source.Aggregate(0.0, (total, next) => total += Math.Pow(next - avg, 2));
-            double variance = d / (source.Count() - 1);
-            return Math.Sqrt(variance);
-        }
+       //public static double StandardDeviation(int[] source)
+       // {
+       //     double avg = source.AsParallel().Average();
+       //     double d = source.Aggregate(0.0, (total, next) => total += Math.Pow(next - avg, 2));
+       //     double variance = d / (source.Count() - 1);
+       //     return Math.Sqrt(variance);
+       // }
                  
 
         // main method that I am using just to test my methods in the class Focus
