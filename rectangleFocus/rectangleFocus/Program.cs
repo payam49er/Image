@@ -67,18 +67,20 @@ namespace ImageFocus
 
             int totalPixels = rect.Height * rect.Width;
             int[] pixelData = new int[totalPixels];
-            for (int i = 0; i < totalPixels; i++)
-            {
-                byte* pixel = (byte*)bmd.Scan0;
-                pixel = pixel + (i * 4);
+        
+                Parallel.For(0,totalPixels, i =>
+                 {
 
-                byte b = pixel[0];
-                byte g = pixel[1];
-                byte r = pixel[2];
+                     byte* pixel = (byte*)bmd.Scan0;
+                     pixel = pixel + (i * 4);
 
-                int luma = (int)(r * 0.3 + g * 0.59 + b * 0.11);
-                pixelData[i] = luma;
-            }
+                     byte b = pixel[0];
+                     byte g = pixel[1];
+                     byte r = pixel[2];
+
+                     int luma = (int)(r * 0.3 + g * 0.59 + b * 0.11);
+                     pixelData[i] = luma;
+                 });
 
             double mean = pixelData.AsParallel().Average();
             double FM = pixelData.AsParallel().Aggregate(0.0, (subtotal, item) => subtotal + ((item - mean) * (item - mean)),
